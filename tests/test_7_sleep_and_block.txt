@@ -1,0 +1,5 @@
+T1 start
+Main blocked T1 at total=3
+Main resumed T1 at total=6
+T1 resumed, total=7
+Done

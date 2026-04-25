@@ -1,0 +1,7 @@
+total=1 main=1
+T1 quantums=1
+total=3 main=2
+T1 quantums=2
+total=5 main=3
+dead thread quantums=-1
+Done
