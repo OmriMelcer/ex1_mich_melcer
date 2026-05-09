@@ -1,8 +1,9 @@
 #include "uthreads.h"
 
 #include <iostream>
+#include "orchastrator.h"
 
-
+static Orchestrator* orchestrator = nullptr;
 /**
  * @brief initializes the thread library.
  *
@@ -16,8 +17,12 @@
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_init(int quantum_usecs) {
-    std::cerr << "thread library error: " << "did not implement" << std::endl;
-    return -1;
+    if(quantum_usecs <= 0) {
+        std::cerr << "thread library error: " << "quantum_usecs must be positive" << std::endl;
+        return -1;
+    }
+    orchestrator = new Orchestrator(quantum_usecs);
+    return 0;
 }
 
 /**
@@ -33,8 +38,8 @@ int uthread_init(int quantum_usecs) {
  * @return On success, return the ID of the created thread. On failure, return -1.
 */
 int uthread_spawn(thread_entry_point entry_point) {
-    std::cerr << "thread library error: " << "did not implement" << std::endl;
-    return -1;
+  // testing and  Input validation is inside the orchestrator class. 
+    return orchestrator->spawn(entry_point);
 }
 
 
@@ -111,8 +116,7 @@ int uthread_sleep(int num_quantums) {
  * @return The ID of the calling thread.
 */
 int uthread_get_tid() {
-    std::cerr << "thread library error: " << "did not implement" << std::endl;
-    return -1;
+    return orchestrator->get_current_thread();
 }
 
 
