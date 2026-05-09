@@ -50,3 +50,9 @@ int Thread::get_time_remaining() {
 void Thread::set_time_remaining(int time) {
     this->time_remaining = time;
 }
+int Thread::save_env() {
+    return sigsetjmp(env, 1);
+}
+void Thread::run() {
+    siglongjmp(env, 1);
+}

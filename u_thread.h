@@ -38,6 +38,8 @@ class Thread {
     void increment_quantom_count();
     int get_time_remaining();
     void set_time_remaining(int time);
+    int save_env();
+    void run();
 };
 
 
