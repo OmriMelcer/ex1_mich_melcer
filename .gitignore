@@ -1,5 +1,6 @@
 #gitignore for exercise.
 
-*png
-*jpeg
-*jpg
+*.png
+*.jpeg
+*.jpg
+*.out
