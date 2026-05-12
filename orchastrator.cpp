@@ -1,16 +1,37 @@
 // orchastrator.cpp
 #include "orchastrator.h"
 
+Orchestrator *Orchestrator::instance= nullptr;
+
 Orchestrator::Orchestrator(int quantum_usecs)
 {
   this->quantum_usecs= quantum_usecs;
   this->total_quantums= 1;
+  this->instance= this;
   for (int i= 0; i < MAX_THREAD_NUM; i++)
   {
     threads[i]= nullptr;
   }
   threads[0]= new Thread();
   this->current_thread= 0;
+  sa= {0};
+  sa.sa_handler= &Orchestrator::timer_handler;
+  if (sigaction(SIGVTALRM, &sa, NULL) < 0)
+  {
+    std::cerr << "thread library error: failed to set timer handler"
+              << std::endl;
+  }
+  timer.it_value.tv_sec= 0; // first time interval, seconds part
+  timer.it_value.tv_usec=
+      quantum_usecs; // first time interval, microseconds part
+
+  timer.it_interval.tv_sec= 0;
+  timer.it_interval.tv_usec=
+      quantum_usecs; // following time intervals, microseconds part
+  if (setitimer(ITIMER_VIRTUAL, &timer, NULL))
+  {
+    std::cerr << "thread library error: failed to set timer" << std::endl;
+  }
 }
 
 Orchestrator::~Orchestrator()
@@ -56,6 +77,7 @@ int Orchestrator::terminate(int tid)
   {
     ready_queue.erase(it);
   }
+  sleeping_threads.erase(tid);
   if (tid == current_thread)
   {
     context_switch();
@@ -213,3 +235,4 @@ void Orchestrator::handle_sleeping_threads()
     }
   }
 }
+void Orchestrator::timer_handler(int sig) { instance->run2ready(); }
