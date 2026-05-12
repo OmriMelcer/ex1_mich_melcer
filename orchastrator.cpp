@@ -36,6 +36,9 @@ Orchestrator::Orchestrator(int quantum_usecs)
 
 Orchestrator::~Orchestrator()
 {
+  // leave timer blocked when destructing the orchestrator, to prevent any timer
+  // handler from running after the orchestrator is destructed
+  block_timer();
   for (int i= 0; i < MAX_THREAD_NUM; i++)
   {
     delete threads[i];
@@ -44,24 +47,30 @@ Orchestrator::~Orchestrator()
 
 int Orchestrator::spawn(thread_entry_point entry_point)
 {
+  block_timer();
   if (entry_point == nullptr)
   {
+    unblock_timer();
     return -1;
   }
   int new_tid= find_first_available_tid();
   if (new_tid == -1)
   {
+    unblock_timer();
     return -1;
   }
   threads[new_tid]= new Thread(new_tid, entry_point);
   ready_queue.push_back(new_tid);
+  unblock_timer();
   return new_tid;
 }
 
 int Orchestrator::terminate(int tid)
 {
+  block_timer();
   if (tid < 0 || tid >= MAX_THREAD_NUM || threads[tid] == nullptr)
   {
+    unblock_timer();
     return -1;
   }
   if (tid == 0)
@@ -82,13 +91,16 @@ int Orchestrator::terminate(int tid)
   {
     context_switch();
   }
+  unblock_timer();
   return 0;
 }
 
 int Orchestrator::block(int tid)
 {
+  block_timer();
   if (tid < 0 || tid >= MAX_THREAD_NUM || threads[tid] == nullptr || tid == 0)
   {
+    unblock_timer();
     return -1;
   }
   if (tid == current_thread)
@@ -102,6 +114,7 @@ int Orchestrator::block(int tid)
     }
     else
     {
+      unblock_timer();
       return 0;
     }
   }
@@ -114,6 +127,7 @@ int Orchestrator::block(int tid)
     {
       ready_queue.erase(it);
     }
+    unblock_timer();
     return 0;
   }
 }
@@ -124,11 +138,13 @@ int Orchestrator::context_switch()
   is only from the current thread to the first thread in the ready queue.
   This function only handles the context switch, and does not change the state
   of the current thread.
+  assumes that timer is already blocked.
    */
 
   if (ready_queue.empty())
   {
     std::cerr << "thread library error: no threads to switch to" << std::endl;
+    unblock_timer();
     return -1; // No other thread to switch to
   }
   total_quantums++;
@@ -138,14 +154,17 @@ int Orchestrator::context_switch()
   threads[next_thread]->set_state(RUNNING);
   threads[next_thread]->increment_quantom_count();
   current_thread= next_thread;
+  unblock_timer();
   threads[next_thread]->run();
   return 0;
 }
 
 int Orchestrator::resume(int tid)
 {
+  block_timer();
   if (tid < 0 || tid >= MAX_THREAD_NUM || threads[tid] == nullptr)
   {
+    unblock_timer();
     return -1;
   }
   if (blocked_threads.find(tid) != blocked_threads.end())
@@ -154,22 +173,28 @@ int Orchestrator::resume(int tid)
     threads[tid]->set_state(READY);
     ready_queue.push_back(tid);
   }
+  unblock_timer();
   return 0;
 }
 
 int Orchestrator::sleep(int num_quantums)
 {
   // assumes that num_quantums is above or equal zero
+  block_timer();
   if (num_quantums < 0)
   {
+    unblock_timer();
     return -1;
   }
   if (current_thread == 0 && num_quantums != 0)
   {
+    unblock_timer();
     return -1;
   }
   if (num_quantums == 0)
   {
+    // leave timer blocked when calling another orchestrator function, to
+    // prevent any timer handler from running in the middle of the function
     return run2ready();
   }
   threads[current_thread]->set_time_remaining(num_quantums + 1);
@@ -180,16 +205,21 @@ int Orchestrator::sleep(int num_quantums)
   {
     return context_switch();
   }
+  unblock_timer();
   return 0;
 }
 
-int Orchestrator::get_quantums(int tid) const
+int Orchestrator::get_quantums(int tid)
 {
+  block_timer();
   if (tid < 0 || tid >= MAX_THREAD_NUM || threads[tid] == nullptr)
   {
+    unblock_timer();
     return -1;
   }
-  return threads[tid]->get_quantom_count();
+  int result= threads[tid]->get_quantom_count();
+  unblock_timer();
+  return result;
 }
 
 int Orchestrator::find_first_available_tid()
@@ -205,6 +235,7 @@ int Orchestrator::find_first_available_tid()
 }
 int Orchestrator::run2ready()
 {
+  // assumes timer is already blocked
   threads[current_thread]->set_state(READY);
   ready_queue.push_back(current_thread);
   int res= threads[current_thread]->save_env();
@@ -212,11 +243,13 @@ int Orchestrator::run2ready()
   {
     return context_switch();
   }
+  unblock_timer();
   return 0;
 }
 
 void Orchestrator::handle_sleeping_threads()
 {
+  // assumes timer is already blocked
   std::vector<int> to_wake;
   for (int tid : sleeping_threads)
   {
@@ -235,4 +268,20 @@ void Orchestrator::handle_sleeping_threads()
     }
   }
 }
+
 void Orchestrator::timer_handler(int sig) { instance->run2ready(); }
+void Orchestrator::block_timer()
+{
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGVTALRM);
+  sigprocmask(SIG_BLOCK, &mask, nullptr);
+}
+
+void Orchestrator::unblock_timer()
+{
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGVTALRM);
+  sigprocmask(SIG_UNBLOCK, &mask, nullptr);
+}

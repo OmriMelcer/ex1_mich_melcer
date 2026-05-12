@@ -29,6 +29,8 @@ private:
   int find_first_available_tid();
   int context_switch();
   void handle_sleeping_threads();
+  void block_timer();
+  void unblock_timer();
 
 public:
   Orchestrator(int quantum_usecs);
@@ -41,9 +43,21 @@ public:
   int resume(int tid);
   int run2ready();
   int sleep(int num_quantums);
-  int get_total_quantums() const { return total_quantums; }
-  int get_quantums(int tid) const;
-  int get_current_thread() const { return current_thread; }
+  int get_total_quantums()
+  {
+    block_timer();
+    int result= total_quantums;
+    unblock_timer();
+    return result;
+  }
+  int get_quantums(int tid);
+  int get_current_thread()
+  {
+    block_timer();
+    int result= current_thread;
+    unblock_timer();
+    return result;
+  }
 };
 
 #endif // ORCHASTRATOR_H

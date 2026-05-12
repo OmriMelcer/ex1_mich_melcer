@@ -2,7 +2,7 @@
 
 int main() {
   std::string command = "g++ -std=c++11 -fsanitize=address "
-                        "-fno-omit-frame-pointer -g uthreads.cpp DoNotRunThis2"
+                        "-fno-omit-frame-pointer -g -I. uthreads.cpp orchastrator.cpp u_thread.cpp utils.cpp DoNotRunThis2"
                         ".cpp -o "
                         "test_asan";
   if (system(command.c_str()) != 0)
