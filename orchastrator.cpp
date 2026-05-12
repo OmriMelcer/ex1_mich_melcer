@@ -56,11 +56,6 @@ int Orchestrator::terminate(int tid)
   {
     ready_queue.erase(it);
   }
-  if (blocked_threads.find(tid) != blocked_threads.end())
-  {
-    blocked_threads.erase(tid);
-    return 0;
-  }
   if (tid == current_thread)
   {
     context_switch();
@@ -78,8 +73,15 @@ int Orchestrator::block(int tid)
   {
     threads[tid]->set_state(BLOCKED);
     blocked_threads.insert(tid);
-    threads[tid]->save_env();
-    return context_switch();
+    int is_first= threads[tid]->save_env();
+    if (is_first == 0)
+    {
+      return context_switch();
+    }
+    else
+    {
+      return 0;
+    }
   }
   else
   {
@@ -107,6 +109,8 @@ int Orchestrator::context_switch()
     std::cerr << "thread library error: no threads to switch to" << std::endl;
     return -1; // No other thread to switch to
   }
+  total_quantums++;
+  this->handle_sleeping_threads();
   int next_thread= ready_queue.front();
   ready_queue.pop_front();
   threads[next_thread]->set_state(RUNNING);
@@ -115,6 +119,7 @@ int Orchestrator::context_switch()
   threads[next_thread]->run();
   return 0;
 }
+
 int Orchestrator::resume(int tid)
 {
   if (tid < 0 || tid >= MAX_THREAD_NUM || threads[tid] == nullptr)
@@ -133,10 +138,27 @@ int Orchestrator::resume(int tid)
 int Orchestrator::sleep(int num_quantums)
 {
   // assumes that num_quantums is above or equal zero
+  if (num_quantums < 0)
+  {
+    return -1;
+  }
+  if (current_thread == 0 && num_quantums != 0)
+  {
+    return -1;
+  }
   if (num_quantums == 0)
   {
     return run2ready();
   }
+  threads[current_thread]->set_time_remaining(num_quantums + 1);
+  threads[current_thread]->set_state(BLOCKED);
+  sleeping_threads.insert(current_thread);
+  int is_first= threads[current_thread]->save_env();
+  if (is_first == 0)
+  {
+    return context_switch();
+  }
+  return 0;
 }
 
 int Orchestrator::get_quantums(int tid) const
@@ -163,6 +185,31 @@ int Orchestrator::run2ready()
 {
   threads[current_thread]->set_state(READY);
   ready_queue.push_back(current_thread);
-  threads[current_thread]->save_env();
-  return context_switch();
+  int res= threads[current_thread]->save_env();
+  if (res == 0)
+  {
+    return context_switch();
+  }
+  return 0;
+}
+
+void Orchestrator::handle_sleeping_threads()
+{
+  std::vector<int> to_wake;
+  for (int tid : sleeping_threads)
+  {
+    int rem= threads[tid]->get_time_remaining();
+    threads[tid]->set_time_remaining(rem - 1);
+    if (rem - 1 == 0)
+      to_wake.push_back(tid);
+  }
+  for (int tid : to_wake)
+  {
+    sleeping_threads.erase(tid);
+    if (blocked_threads.find(tid) == blocked_threads.end())
+    {
+      threads[tid]->set_state(READY);
+      ready_queue.push_back(tid);
+    }
+  }
 }

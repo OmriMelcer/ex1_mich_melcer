@@ -147,13 +147,13 @@ int uthread_resume(int tid)
  */
 int uthread_sleep(int num_quantums)
 {
-  if (num_quantums < 0)
+  int res= orchestrator->sleep(num_quantums);
+  if (res == -1)
   {
-    std::cerr << "thread library error: num_quantums must be non-negative"
+    std::cerr << "thread library error: failed to put thread to sleep"
               << std::endl;
-    return -1;
   }
-  return orchestrator->sleep(num_quantums);
+  return res;
 }
 
 /**
