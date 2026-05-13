@@ -26,6 +26,7 @@ private:
   int current_thread;
   int total_quantums;
   int quantum_usecs;
+  Thread *pending_delete;
   int find_first_available_tid();
   int context_switch();
   void handle_sleeping_threads();

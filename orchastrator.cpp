@@ -8,6 +8,7 @@ Orchestrator::Orchestrator(int quantum_usecs)
   this->quantum_usecs= quantum_usecs;
   this->total_quantums= 1;
   this->instance= this;
+  this->pending_delete= nullptr;
   for (int i= 0; i < MAX_THREAD_NUM; i++)
   {
     threads[i]= nullptr;
@@ -39,9 +40,11 @@ Orchestrator::~Orchestrator()
   // leave timer blocked when destructing the orchestrator, to prevent any timer
   // handler from running after the orchestrator is destructed
   block_timer();
+  delete pending_delete;
   for (int i= 0; i < MAX_THREAD_NUM; i++)
   {
-    delete threads[i];
+    if (i != current_thread || current_thread == 0)
+      delete threads[i];
   }
 }
 
@@ -78,7 +81,17 @@ int Orchestrator::terminate(int tid)
     delete this;
     exit(0);
   }
-  delete threads[tid];
+  if (tid != current_thread)
+  { delete threads[tid];}
+  else 
+  {
+    if (pending_delete != nullptr)
+    {
+      delete pending_delete;
+    }
+    pending_delete = threads[tid];
+  }
+
   threads[tid]= nullptr;
   blocked_threads.erase(tid);
   auto it= std::find(ready_queue.begin(), ready_queue.end(), tid);

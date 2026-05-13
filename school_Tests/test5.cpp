@@ -1,7 +1,7 @@
 #include <iostream>
 
 int main() {
-  std::string command = "g++ -std=c++11 -fsanitize=address -fno-omit-frame-pointer -g -I. uthreads.cpp orchastrator.cpp u_thread.cpp utils.cpp DoNotRunThis.cpp -o test_asan";
+  std::string command = "g++ -std=c++17 -fsanitize=address -fno-omit-frame-pointer -g -I.. ../uthreads.cpp ../orchastrator.cpp ../u_thread.cpp ../utils.cpp DoNotRunThis.cpp -o test_asan";
   if (system(command.c_str()) != 0)
   {
     printf ("Failed to run test (it doesn't mean you failed the test)\n");
